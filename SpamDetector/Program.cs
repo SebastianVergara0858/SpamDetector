@@ -1,13 +1,18 @@
+using SpamDetector.Middleware;
 using Microsoft.EntityFrameworkCore;
 using SpamDetector.Data;
+using SpamDetector.Middleware;
+using SpamDetector.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Registrar el detector de spam en el contenedor de dependencias
+builder.Services.AddScoped<ISpamDetectorService, SpamDetectorService>();
 var app = builder.Build();
-
+app.UseMiddleware<SpamBlockerMiddleware>();
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
