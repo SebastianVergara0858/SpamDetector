@@ -1,4 +1,3 @@
-using SpamDetector.Middleware;
 using Microsoft.EntityFrameworkCore;
 using SpamDetector.Data;
 using SpamDetector.Middleware;
@@ -31,3 +30,4 @@ app.UseAuthorization();
 app.MapRazorPages();
 
 app.Run();
+

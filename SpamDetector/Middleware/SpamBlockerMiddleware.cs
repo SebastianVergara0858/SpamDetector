@@ -1,5 +1,4 @@
-﻿using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using SpamDetector.Services;
 
 namespace SpamDetector.Middleware
@@ -15,25 +14,25 @@ namespace SpamDetector.Middleware
 
         public async Task InvokeAsync(HttpContext context, ISpamDetectorService spamDetectorService)
         {
-            // Obtener la IP remota del cliente que hace la petición
-            var ipAddress = context.Connection.RemoteIpAddress?.ToString();
+            // Capturar la IP del cliente de red de forma asíncrona
+            string remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
 
-            if (!string.IsNullOrEmpty(ipAddress))
+            // Si es una petición local IPv6 loopback, la normalizamos a string plano
+            if (remoteIp == "::1") remoteIp = "127.0.0.1";
+
+            // Evaluar mediante el servicio de negocio si excede el Rate Limiting
+            bool isSpam = await spamDetectorService.IsSpamAsync(remoteIp);
+
+            if (isSpam)
             {
-                // Evaluar si la IP debe ser bloqueada
-                bool isSpam = await spamDetectorService.IsSpamAsync(ipAddress);
-
-                if (isSpam)
-                {
-                    // Si es spam, cortamos el flujo inmediatamente y devolvemos Código HTTP 429 (Too Many Requests)
-                    context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-                    context.Response.ContentType = "text/plain";
-                    await context.Response.WriteAsync("Acceso denegado: Demasiadas peticiones consecutivas (Deteccion de Spam).");
-                    return; // Detiene el pipeline aquí mismo
-                }
+                // Cortocircuitar el pipeline: respondemos con 429 y no dejamos avanzar a los controladores
+                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                context.Response.ContentType = "text/plain";
+                await context.Response.WriteAsync("Error 429: Demasiadas peticiones. Tráfico bloqueado por SpamDetector.");
+                return; // Detiene el flujo por completo
             }
 
-            // Si todo está limpio, se permite que la petición continúe a la página MVC
+            // Si el tráfico es legítimo, continúa al siguiente componente o controlador
             await _next(context);
         }
     }
